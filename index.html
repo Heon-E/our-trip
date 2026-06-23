@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>우리 여행 — 통합 플랫폼</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+:root{
+  --bg:#fdf6f8; --surface:#ffffff; --surface2:#f9eef2; --text:#2c2329; --muted:#9a8b91;
+  --border:#f0dfe6; --accent:#d4537e; --accent-soft:#fbeaf0; --gold:#e0a93b; --good:#5b8c5a; --info:#3d8bcd;
+  --shadow:0 1px 3px rgba(60,30,40,.06),0 4px 16px rgba(60,30,40,.05); --radius:16px;
+}
+[data-theme="dark"]{
+  --bg:#171115; --surface:#211a1e; --surface2:#2b2125; --text:#ece4e8; --muted:#a8959d;
+  --border:#3a2c32; --accent:#e87aa0; --accent-soft:#3a2028; --gold:#e6b94f; --good:#7bb06f; --info:#5fa0d8;
+  --shadow:0 1px 3px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;
+  max-width:480px;margin:0 auto;padding:max(env(safe-area-inset-top),12px) 12px 78px}
+h1,h2{font-family:Georgia,"Apple SD Gothic Neo",serif;font-weight:600}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+header h1{font-size:1.25rem}
+.muted{color:var(--muted)} .small{font-size:.82rem}
+.banner{background:var(--accent-soft);color:var(--accent);font-size:.76rem;padding:8px 11px;border-radius:10px;margin-bottom:12px}
+.userbar{display:flex;align-items:center;gap:8px}
+.who{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);
+  border-radius:999px;padding:4px 5px 4px 10px;cursor:pointer;font-size:.85rem;font-weight:600;color:var(--text)}
+.ava{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:.78rem;color:#fff;font-weight:700}
+.ava.j{background:#3d8bcd} .ava.y{background:#d4537e}
+.iconbtn{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px 9px;cursor:pointer;color:var(--text);font-size:1rem}
+
+.tabbar{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;display:flex;z-index:30;
+  background:var(--surface);border-top:1px solid var(--border);padding:6px 0 max(env(safe-area-inset-bottom),6px)}
+.tabbar button{flex:1;border:none;background:none;color:var(--muted);font-size:.64rem;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;font-weight:600}
+.tabbar button .ic{font-size:1.2rem;line-height:1}
+.tabbar button.active{color:var(--accent)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow);margin-bottom:11px}
+.sec{font-size:.74rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:16px 2px 8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+.chip{font-size:.82rem;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  padding:6px 12px;border-radius:999px;cursor:pointer}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.seg{display:flex;gap:6px;background:var(--surface2);padding:4px;border-radius:11px;margin-bottom:12px}
+.seg button{flex:1;border:none;background:transparent;color:var(--muted);font-size:.85rem;font-weight:600;padding:7px;border-radius:8px;cursor:pointer}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+input,select,textarea{font:inherit;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);width:100%}
+
+.p-name{font-size:1.02rem;font-weight:700;flex:1}
+.badge{font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff;white-space:nowrap}
+.p-meta{font-size:.8rem;color:var(--muted);margin-top:2px}
+.rate-row{display:flex;align-items:center;gap:8px;margin-top:7px}
+.rate-row .ava{width:22px;height:22px;font-size:.7rem}
+.stars{font-size:1.12rem;letter-spacing:1px;color:var(--border);user-select:none}
+.stars .on{color:var(--gold)}
+.stars.edit span{cursor:pointer}
+.avg{margin-left:auto;font-size:.8rem;color:var(--muted)} .avg b{color:var(--text)}
+.p-actions{display:flex;align-items:center;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:9px}
+.act{font-size:.8rem;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  padding:5px 11px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.act.wish.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.act.go.on{background:var(--good);color:#fff;border-color:var(--good)}
+.bothwish{font-size:.7rem;color:var(--accent);font-weight:700}
+
+#map{height:240px;border-radius:14px;border:1px solid var(--border);margin-bottom:12px;z-index:0}
+
+.leg{display:flex;gap:10px;margin-bottom:4px}
+.leg .line{display:flex;flex-direction:column;align-items:center}
+.leg .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);margin-top:5px}
+.leg .bar{flex:1;width:2px;background:var(--border)}
+.leg .body{flex:1;padding-bottom:14px}
+.leg .city{font-weight:700}
+.leg .when{font-size:.78rem;color:var(--muted)}
+.leg .note{font-size:.82rem;margin-top:2px}
+.stay{font-size:.76rem;color:var(--info);text-decoration:none;display:inline-flex;align-items:center;gap:3px;margin-top:3px}
+
+.exp-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.exp-row:last-child{border:none}
+.exp-row .who-ava{width:20px;height:20px;border-radius:50%;font-size:.62rem;color:#fff;display:grid;place-items:center;font-weight:700}
+.amt{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.settle{background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:10px 12px;font-size:.86rem;font-weight:600;margin-top:8px}
+.bktbar{height:12px;border-radius:999px;background:var(--surface2);overflow:hidden;margin:6px 0 12px}
+.bktbar span{display:block;height:100%;background:var(--accent);transition:width .3s}
+.bkt-item{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.bkt-item:last-child{border:none}
+.bkt-check{width:22px;height:22px;border-radius:7px;border:2px solid var(--border);display:grid;place-items:center;color:#fff;flex:none;font-size:.8rem}
+.bkt-item.done .bkt-check{background:var(--good);border-color:var(--good)}
+.bkt-item.done .bkt-label{text-decoration:line-through;color:var(--muted)}
+
+.dday{font-size:.72rem;font-weight:700;color:var(--accent)}
+.res-item{border-left:2px solid var(--border);padding-left:11px;margin-bottom:13px}
+.res-item.soon{border-color:var(--accent)} .res-item.done{opacity:.6}
+.empty{color:var(--muted);font-size:.88rem;padding:6px 2px}
+.addrow{display:flex;gap:6px;margin-top:10px}
+.btn{background:var(--accent);color:#fff;border:none;padding:11px 16px;border-radius:11px;cursor:pointer;font-weight:600;font:inherit;width:100%}
+.btn.sm{padding:9px 12px;width:auto;white-space:nowrap}
+.btn.ghost{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
+.modal.show{display:flex}
+.sheet{background:var(--surface);border-radius:18px 18px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:480px}
+.sheet h2{font-size:1.05rem;margin-bottom:12px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:.76rem;color:var(--muted);margin-bottom:3px;font-weight:600}
+.row2{display:flex;gap:8px}.row2>*{flex:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>💕 우리 여행</h1>
+  <div class="userbar">
+    <button class="who" id="whoBtn"><span class="ava" id="ava">자</span><span id="whoName">자헌</span> <span class="muted small">⇄</span></button>
+    <button class="iconbtn" id="themeBtn">🌙</button>
+  </div>
+</header>
+<div class="banner">🧪 통합 프로토타입 v1 — 데이터는 이 기기에만 저장(전역 후 Firebase로 둘이 실시간 공유). 상단 <b>자헌⇄여친</b> 전환으로 둘이 평점·정산 체험.</div>
+
+<section id="view"></section>
+
+<div class="tabbar" id="tabbar">
+  <button data-tab="home" class="active"><span class="ic">🏠</span>홈</button>
+  <button data-tab="trip"><span class="ic">✈️</span>여행</button>
+  <button data-tab="food"><span class="ic">🍜</span>맛집</button>
+  <button data-tab="resv"><span class="ic">📅</span>예약</button>
+  <button data-tab="set"><span class="ic">⚙️</span>설정</button>
+</div>
+
+<div class="modal" id="resModal"><div class="sheet">
+  <h2>예약 추가</h2>
+  <div class="field"><label>가게</label><input type="text" id="rPlace" readonly></div>
+  <div class="row2"><div class="field"><label>날짜</label><input type="date" id="rDate"></div>
+    <div class="field"><label>시간</label><input type="time" id="rTime" value="19:00"></div></div>
+  <div class="row2"><div class="field"><label>인원</label><input type="text" id="rParty" value="2인"></div>
+    <div class="field"><label>수단</label><select id="rVia"><option>네이버예약</option><option>캐치테이블</option><option>전화</option><option>워크인</option></select></div></div>
+  <div class="row2"><button class="btn ghost" id="rCancel">취소</button><button class="btn" id="rSave">저장</button></div>
+</div></div>
+
+<div class="modal" id="expModal"><div class="sheet">
+  <h2>지출 추가</h2>
+  <div class="field"><label>항목</label><input type="text" id="eLabel" placeholder="예: 한옥마을 한정식"></div>
+  <div class="row2"><div class="field"><label>금액(원)</label><input type="number" id="eAmt" placeholder="0"></div>
+    <div class="field"><label>분류</label><select id="eCat"><option>식비</option><option>숙박</option><option>교통</option><option>관광</option><option>기타</option></select></div></div>
+  <div class="field"><label>결제자</label><select id="ePayer"><option value="j">자헌</option><option value="y">여친</option></select></div>
+  <div class="row2"><button class="btn ghost" id="eCancel">취소</button><button class="btn" id="eSave">저장</button></div>
+</div></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ===== 저장 (localStorage; 전역 후 Firebase 교체) ===== */
+const LS=(function(){try{return window.localStorage}catch(e){return null}})();
+function gv(k,d){try{const r=JSON.parse(LS.getItem(k));return r==null?d:r}catch(e){return d}}
+function sv(k,v){try{LS.setItem(k,JSON.stringify(v))}catch(e){}}
+
+let me=gv('up_user','j');
+let names=gv('up_names',{j:'자헌',y:'여친'});
+const UC={j:'j',y:'y'};
+function uname(u){return names[u]} function uini(u){return names[u].charAt(0)}
+
+/* ===== 맛집 41곳 (맛집 지도 이식) ===== */
+const CITYMETA={daegu:{n:'대구',c:'#e07a5f'},seoul:{n:'서울',c:'#3d8bcd'},jeonju:{n:'전주',c:'#5b8c5a'},gunsan:{n:'군산',c:'#9b6bc2'}};
+const SEED=[
+ ['daegu','교동따로식당','따로국밥','중구 동성로',35.87194,128.59301],['daegu','국일따로국밥','따로국밥','중구 중앙로',35.87054,128.58483],
+ ['daegu','안지랑곱창막창','막창','남구 안지랑',35.83731,128.57488],['daegu','미성당','납작만두','중구 남산동',35.85850,128.57869],
+ ['daegu','왕거미식당','생고기','중구 동인동',35.87050,128.59065],['daegu','푸른회식당','무침회','서구 반고개',35.86304,128.57030],
+ ['daegu','실비찜갈비','찜갈비','중구 동인동',35.86985,128.60940],['daegu','중화반점','중식','중구 동성로',35.86932,128.59457],
+ ['daegu','명신손칼국수','칼국수','중구 서문시장',35.86978,128.58082],['daegu','삼송빵집','베이커리','중구 동성로',35.86509,128.59338],
+ ['seoul','우래옥','평양냉면','중구 을지로',37.56822,126.99882],['seoul','남포면옥','평양냉면','중구 을지로',37.56724,126.98161],
+ ['seoul','을밀대','평양냉면','마포구 염리동',37.54748,126.94548],['seoul','미진','면','종로구 종로',37.57085,126.97988],
+ ['seoul','을지면옥','평양냉면','종로구 낙원동',37.57405,126.98881],['seoul','박가네빈대떡','노포','종로구 광장시장',37.57010,126.99983],
+ ['seoul','새벽집','한우','강남구 청담동',37.52556,127.05289],['seoul','핏제리아오','이탈리안','용산구 이태원',37.53989,126.99147],
+ ['seoul','어니언 성수','카페','성동구 성수동',37.54471,127.05823],['seoul','레이어드 연남','카페','마포구 연남동',37.56498,126.92419],
+ ['seoul','프릳츠 도화','카페','마포구 도화동',37.54107,126.94908],['seoul','미필담','한식','마포구 합정동',37.54944,126.91369],
+ ['jeonju','가족회관','비빔밥','완산구 중앙동',35.81752,127.14546],['jeonju','한국집','비빔밥','한옥마을',35.81496,127.15124],
+ ['jeonju','삼백집','콩나물국밥','완산구 고사동',35.81795,127.14110],['jeonju','전주왱이콩나물국밥','콩나물국밥','완산구 경원동',35.81831,127.14919],
+ ['jeonju','조점례남문피순대','피순대','완산구 남부시장',35.81365,127.14285],['jeonju','전일슈퍼','가맥','완산구 경원동',35.82003,127.14918],
+ ['jeonju','양반가','한정식','한옥마을',35.81663,127.15324],['jeonju','용진집','막걸리','완산구 삼천동',35.79720,127.12277],
+ ['jeonju','PNB풍년제과','베이커리','완산구 중앙동',35.80689,127.14962],['jeonju','명진당','베이커리','완산구 평화동',35.78471,127.13277],
+ ['gunsan','이성당','베이커리','중앙로',35.98302,126.71709],['gunsan','복성루','짬뽕','미원동',35.98738,126.69835],
+ ['gunsan','지린성','짬뽕','미원동',35.97872,126.71236],['gunsan','빈해원','짬뽕','신창동',35.98640,126.71414],
+ ['gunsan','한일옥','백반','신창동',35.98583,126.70714],['gunsan','째보식당','게장','신창동',35.98570,126.70760],
+ ['gunsan','한주옥','게장','영화동',35.98887,126.70906],['gunsan','서우식당','백반','나운동',35.96811,126.70486],
+ ['gunsan','카페 신민회','카페','신창동',35.98999,126.71303],
+].map((a,i)=>({id:'p'+i,city:a[0],name:a[1],genre:a[2],area:a[3],lat:a[4],lng:a[5]}));
+
+let pdata=gv('up_pdata',{});
+function pd(id){return pdata[id]||(pdata[id]={rating:{},wish:{},visited:{}})}
+function savePd(){sv('up_pdata',pdata)}
+function avg(id){const r=pd(id).rating;const v=[r.j,r.y].filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0}
+function bothWish(id){const w=pd(id).wish;return w.j&&w.y}
+
+/* ===== 여행 (실제 여름 한국 일주) ===== */
+let trip=gv('up_trip',null);
+if(!trip){trip={name:'여름 한국 일주 🇰🇷',start:'2026-07-17',end:'2026-08-14',
+  legs:[
+   {city:'🗽 서울 (명동)',date:'7.17',start:'2026-07-17',nights:'1박',note:'명동 숙소 · 여행 시작!',stay:'https://www.airbnb.co.kr/rooms/1426528785836118641'},
+   {city:'🚗 대구 (대전 경유)',date:'7.18–22',start:'2026-07-18',nights:'4박',note:'대전 들렀다 대구 도착'},
+   {city:'🌊 남해',date:'7.22–24',start:'2026-07-22',nights:'2박',note:'독일마을 · 다랭이마을'},
+   {city:'🍜 군산',date:'7.24–25',start:'2026-07-24',nights:'1박',note:'근대거리 · 이성당'},
+   {city:'🍲 전주',date:'7.25–26',start:'2026-07-25',nights:'1박',note:'한옥마을 · 비빔밥'},
+   {city:'🏙️ 대구',date:'7.26–8.3',start:'2026-07-26',nights:'8박',note:'여유로운 베이스캠프'},
+   {city:'⛰️ 동해',date:'8.3–4',start:'2026-08-03',nights:'1박',note:'묵호항'},
+   {city:'🏖️ 속초',date:'8.4–7',start:'2026-08-04',nights:'3박',note:'설악산 · 속초 해변'},
+   {city:'🌃 서울',date:'8.7–14',start:'2026-08-07',nights:'7박',note:'마무리 서울'},
+  ],
+  expenses:[
+   {id:'e1',label:'명동 숙소',amount:120000,cat:'숙박',payer:'j'},
+   {id:'e2',label:'KTX 표',amount:48000,cat:'교통',payer:'y'},
+  ],
+  bucket:[
+   {id:'b1',text:'남해 독일마을 야경 보기',done:false},
+   {id:'b2',text:'전주 한복 입고 한옥마을',done:false},
+   {id:'b3',text:'속초 설악산 케이블카',done:false},
+   {id:'b4',text:'이성당 단팥빵 먹기',done:true},
+  ]};
+  sv('up_trip',trip);
+}
+function saveTrip(){sv('up_trip',trip)}
+
+let resv=gv('up_resv',[]);
+function saveResv(){sv('up_resv',resv)}
+
+/* ===== 날짜 ===== */
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function today(){return ymd(new Date())}
+function dday(s){if(!s)return null;return Math.round((new Date(s)-new Date(today()))/86400000)}
+function ddayLabel(s){const n=dday(s);return n==null?'':n>0?'D-'+n:n===0?'D-DAY':'완료'}
+function won(n){return n.toLocaleString('ko-KR')+'원'}
+
+/* ===== 상태 ===== */
+let tab='home',tripSub='plan',foodCity='all',foodWishOnly=false,foodQ='';
+
+/* ===== 위젯 ===== */
+function starHTML(id,u,ed){const v=pd(id).rating[u]||0;let s='';
+  for(let i=1;i<=5;i++)s+=`<span class="${i<=v?'on':''}" ${ed?`data-star="${id}:${u}:${i}"`:''}>★</span>`;
+  return `<span class="stars ${ed?'edit':''}">${s}</span>`}
+function placeCard(p){const u=pd(p.id);const a=avg(p.id);const c=CITYMETA[p.city];
+  return `<div class="card">
+    <div style="display:flex;gap:8px"><div style="flex:1">
+      <span class="p-name">${p.name}</span>
+      <div class="p-meta">🏷 ${p.genre} · 📍 ${p.area} ${bothWish(p.id)?'<span class="bothwish">· 둘 다 가고싶어 ❤</span>':''}</div></div>
+      <span class="badge" style="background:${c.c}">${c.n}</span></div>
+    <div class="rate-row"><span class="ava j">${uini('j')}</span>${starHTML(p.id,'j',me==='j')}${me==='j'?'<span class="small muted">탭해서 평가</span>':''}</div>
+    <div class="rate-row"><span class="ava y">${uini('y')}</span>${starHTML(p.id,'y',me==='y')}<span class="avg">평균 <b>${a?a.toFixed(1):'–'}</b></span></div>
+    <div class="p-actions">
+      <button class="act wish ${u.wish[me]?'on':''}" data-wish="${p.id}">❤ 가고싶다</button>
+      <button class="act go ${u.visited[me]?'on':''}" data-go="${p.id}">✓ 가봤다</button>
+      <button class="act" data-res="${p.id}" style="margin-left:auto">📅 예약</button></div></div>`}
+
+/* ===== 홈 ===== */
+function viewHome(){
+  const wishList=SEED.filter(p=>bothWish(p.id));
+  const upcoming=resv.filter(r=>dday(r.date)>=0).sort((a,b)=>a.date.localeCompare(b.date));
+  const rated=SEED.filter(p=>avg(p.id)>0).sort((a,b)=>avg(b.id)-avg(a.id)).slice(0,3);
+  let h=`<div class="card" style="background:var(--accent-soft);border-color:var(--accent)">
+    <div class="small" style="color:var(--accent);font-weight:700">다가오는 여행</div>
+    <div style="font-size:1.35rem;font-weight:700;font-family:Georgia,serif;margin-top:2px">${trip.name} <span style="font-size:.95rem">${ddayLabel(trip.start)}</span></div>
+    <div class="small muted">${trip.start} ~ ${trip.end} · ${trip.legs.length}개 도시</div></div>`;
+  h+=`<div class="sec">📅 예약 임박</div>`;
+  h+=upcoming.length?'<div class="card">'+upcoming.slice(0,3).map(r=>{const p=SEED.find(x=>x.id===r.pid);
+    return `<div style="display:flex;gap:10px;padding:5px 0;align-items:center"><span class="dday" style="min-width:46px">${ddayLabel(r.date)}</span>
+    <div style="flex:1"><div style="font-weight:600">${p?p.name:r.name}</div><div class="small muted">${r.date} ${r.time} · ${r.party} · ${r.via}</div></div></div>`}).join('')+'</div>'
+    :`<div class="card empty">예약 임박 없음. 맛집 탭에서 예약 추가.</div>`;
+  h+=`<div class="sec">❤ 둘 다 가고싶은 곳</div>`;
+  h+=wishList.length?'<div class="card">'+wishList.map(p=>`<div style="display:flex;gap:8px;padding:5px 0;align-items:center">
+    <span class="badge" style="background:${CITYMETA[p.city].c}">${CITYMETA[p.city].n}</span><span style="flex:1">${p.name}</span><span class="small muted">${p.genre}</span></div>`).join('')+'</div>'
+    :`<div class="card empty">둘 다 ❤ 누른 곳이 여기 모여요.</div>`;
+  h+=`<div class="sec">⭐ 우리 최고 평점</div>`;
+  h+=rated.length?'<div class="card">'+rated.map(p=>`<div style="display:flex;gap:8px;padding:5px 0"><span style="flex:1">${p.name}</span><span style="color:var(--gold)">★ ${avg(p.id).toFixed(1)}</span></div>`).join('')+'</div>'
+    :`<div class="card empty">평점 매기면 순위가 떠요.</div>`;
+  return h;
+}
+
+/* ===== 여행 ===== */
+function viewTrip(){
+  let h=`<div class="seg">
+    <button class="${tripSub==='plan'?'on':''}" data-sub="plan">일정</button>
+    <button class="${tripSub==='budget'?'on':''}" data-sub="budget">예산</button>
+    <button class="${tripSub==='bucket'?'on':''}" data-sub="bucket">버킷</button></div>`;
+  if(tripSub==='plan'){
+    h+=`<div class="card"><div style="font-weight:700;margin-bottom:2px">${trip.name}</div>
+      <div class="small muted" style="margin-bottom:12px">${trip.start} ~ ${trip.end} · ${ddayLabel(trip.start)}</div>`;
+    h+=trip.legs.map((l,i)=>`<div class="leg"><div class="line"><div class="dot"></div>${i<trip.legs.length-1?'<div class="bar"></div>':''}</div>
+      <div class="body"><div class="city">${l.city}</div><div class="when">${l.date} · ${l.nights}</div>
+      <div class="note">${l.note}</div>${l.stay?`<a class="stay" href="${l.stay}" target="_blank" rel="noopener">🏠 숙소 보기 ↗</a>`:''}</div></div>`).join('');
+    h+=`</div>`;
+  } else if(tripSub==='budget'){
+    const total=trip.expenses.reduce((s,e)=>s+e.amount,0);
+    const pj=trip.expenses.filter(e=>e.payer==='j').reduce((s,e)=>s+e.amount,0);
+    const py=total-pj;const fair=total/2;
+    let settle;
+    if(Math.round(pj)===Math.round(py))settle='딱 맞아요 👍';
+    else if(pj>py)settle=`${uname('y')} → ${uname('j')} <b>${won(Math.round(pj-fair))}</b>`;
+    else settle=`${uname('j')} → ${uname('y')} <b>${won(Math.round(py-fair))}</b>`;
+    h+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span class="muted small">총 지출</span><span style="font-size:1.3rem;font-weight:700">${won(total)}</span></div>
+      <div class="small muted" style="margin-top:3px">${uname('j')} ${won(pj)} · ${uname('y')} ${won(py)}</div>
+      <div class="settle">💸 정산: ${settle}</div></div>`;
+    h+=`<div class="card">`+(trip.expenses.length?trip.expenses.map(e=>`<div class="exp-row">
+      <span class="who-ava ${e.payer}" style="background:${e.payer==='j'?'#3d8bcd':'#d4537e'}">${uini(e.payer)}</span>
+      <div><div>${e.label}</div><div class="small muted">${e.cat} · ${uname(e.payer)} 결제</div></div>
+      <span class="amt">${won(e.amount)}</span><button class="act" data-delexp="${e.id}" style="padding:3px 7px">🗑</button></div>`).join('')
+      :`<div class="empty">지출이 없어요.</div>`)+`</div>`;
+    h+=`<button class="btn" id="addExp">+ 지출 추가</button>`;
+  } else {
+    const done=trip.bucket.filter(b=>b.done).length;const pct=trip.bucket.length?Math.round(done/trip.bucket.length*100):0;
+    h+=`<div class="card"><div style="display:flex;justify-content:space-between"><span class="small muted">버킷리스트</span><span class="small" style="font-weight:700;color:var(--accent)">${done}/${trip.bucket.length}</span></div>
+      <div class="bktbar"><span style="width:${pct}%"></span></div>`;
+    h+=trip.bucket.map(b=>`<div class="bkt-item ${b.done?'done':''}" data-bkt="${b.id}"><span class="bkt-check">${b.done?'✓':''}</span><span class="bkt-label">${b.text}</span></div>`).join('');
+    h+=`<div class="addrow"><input type="text" id="bktNew" placeholder="버킷 추가"><button class="btn sm" id="addBkt">추가</button></div></div>`;
+  }
+  return h;
+}
+
+/* ===== 맛집 ===== */
+function viewFood(){
+  let list=SEED.filter(p=>(foodCity==='all'||p.city===foodCity)&&(!foodWishOnly||bothWish(p.id))
+    &&(!foodQ||(p.name+p.genre+p.area).toLowerCase().includes(foodQ.toLowerCase())));
+  let h=`<div id="map"></div>`;
+  h+=`<div style="margin-bottom:10px"><input type="search" id="fq" placeholder="이름·메뉴·동네 검색" value="${foodQ}"></div>`;
+  h+=`<div class="chips">`+[['all','전체']].concat(Object.keys(CITYMETA).map(k=>[k,CITYMETA[k].n]))
+    .map(([k,n])=>`<span class="chip ${foodCity===k?'on':''}" data-city="${k}">${n}</span>`).join('')
+    +`<span class="chip ${foodWishOnly?'on':''}" data-wishf="1">❤ 둘 다 가고싶다</span></div>`;
+  h+=`<div class="small muted" style="margin:0 2px 10px">${list.length}곳 · <b>${uname(me)}</b>로 평가 중</div>`;
+  h+=list.length?list.map(placeCard).join(''):`<div class="card empty">조건에 맞는 곳이 없어요.</div>`;
+  return h;
+}
+
+/* ===== 예약 ===== */
+function viewResv(){
+  const sorted=resv.slice().sort((a,b)=>{const da=dday(a.date)<0?1:0,db=dday(b.date)<0?1:0;return da-db||a.date.localeCompare(b.date)});
+  let h=`<div class="sec">📅 예약 내역</div>`;
+  if(!sorted.length)return h+`<div class="card empty">맛집 카드의 📅 예약 버튼으로 추가하세요.</div>`;
+  h+='<div class="card">'+sorted.map(r=>{const p=SEED.find(x=>x.id===r.pid);const n=dday(r.date);
+    return `<div class="res-item ${n<0?'done':n<=1?'soon':''}"><div class="dday">${ddayLabel(r.date)} ${n>=0?'· '+r.date+' '+r.time:''}</div>
+    <div style="font-weight:600;margin:1px 0">${p?p.name:r.name}</div><div class="small muted">${r.party} · ${r.via}${p?' · '+CITYMETA[p.city].n:''}</div>
+    <div style="display:flex;gap:6px;margin-top:6px"><button class="act" data-call="1">☎ 전화</button><button class="act" data-delr="${r.id}">🗑 삭제</button></div></div>`}).join('')+'</div>';
+  return h;
+}
+
+/* ===== 설정 ===== */
+function viewSet(){
+  return `<div class="sec">👫 커플</div>
+   <div class="card"><div class="field"><label>내 이름 (자헌)</label><input type="text" id="nameJ" value="${names.j}"></div>
+   <div class="field"><label>상대 이름 (여친)</label><input type="text" id="nameY" value="${names.y}"></div>
+   <button class="btn" id="saveNames">이름 저장</button></div>
+   <div class="sec">☁️ 동기화</div>
+   <div class="card small muted">지금은 이 기기에만 저장돼요.<br><b>전역(6/27) 후 Firebase 연결</b>하면 둘이 실시간 공유됩니다. (구글 로그인 2인)</div>
+   <div class="sec">💾 데이터</div>
+   <div class="card"><div class="row2"><button class="btn ghost" id="expBtn">내보내기</button><button class="btn ghost" id="impBtn">가져오기</button></div>
+   <input type="file" id="impFile" accept="application/json" style="display:none"></div>`;
+}
+
+/* ===== 라우팅 ===== */
+let map,markerLayer,mapInit=false,fitDone=false;
+function render(){
+  document.getElementById('view').innerHTML=
+    tab==='home'?viewHome():tab==='trip'?viewTrip():tab==='food'?viewFood():tab==='resv'?viewResv():viewSet();
+  document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  if(tab==='food')setupMap();
+  bind();
+}
+function setupMap(){
+  if(!mapInit){map=L.map('map',{scrollWheelZoom:false}).setView([36.2,127.6],7);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map);
+    markerLayer=L.layerGroup().addTo(map);mapInit=true;}
+  fitDone=false;drawMarkers();
+  const refit=()=>{map.invalidateSize();if(map.getSize().x>0&&!fitDone){drawMarkers();fitDone=true}};
+  [60,250,600].forEach(t=>setTimeout(refit,t));
+}
+function dot(c){return L.divIcon({className:'',html:`<div style="width:15px;height:15px;border-radius:50% 50% 50% 0;background:${c};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(-45deg)"></div>`,iconSize:[15,15],iconAnchor:[7,15]})}
+function drawMarkers(){if(!mapInit)return;markerLayer.clearLayers();
+  let list=SEED.filter(p=>(foodCity==='all'||p.city===foodCity)&&(!foodWishOnly||bothWish(p.id))&&(!foodQ||(p.name+p.genre+p.area).toLowerCase().includes(foodQ.toLowerCase())));
+  const pts=[];list.forEach(p=>{L.marker([p.lat,p.lng],{icon:dot(CITYMETA[p.city].c)}).bindPopup(`<b>${p.name}</b><br>${p.genre} · 평균 ${avg(p.id)?avg(p.id).toFixed(1):'–'}`).addTo(markerLayer);pts.push([p.lat,p.lng])});
+  if(pts.length&&map.getSize().x>0)map.fitBounds(pts,{padding:[35,35],maxZoom:14});}
+
+function bind(){
+  document.querySelectorAll('[data-star]').forEach(s=>s.onclick=()=>{const[id,u,v]=s.dataset.star.split(':');const r=pd(id).rating;r[u]=(r[u]===+v?0:+v);savePd();render()});
+  document.querySelectorAll('[data-wish]').forEach(b=>b.onclick=()=>{const w=pd(b.dataset.wish).wish;w[me]=!w[me];savePd();render()});
+  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const g=pd(b.dataset.go).visited;g[me]=!g[me];savePd();render()});
+  document.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>openRes(b.dataset.res));
+  const fq=document.getElementById('fq');if(fq)fq.oninput=e=>{foodQ=e.target.value;const pos=e.target.selectionStart;render();const n=document.getElementById('fq');if(n){n.focus();n.setSelectionRange(pos,pos)}};
+  document.querySelectorAll('[data-city]').forEach(c=>c.onclick=()=>{foodCity=c.dataset.city;render()});
+  document.querySelectorAll('[data-wishf]').forEach(c=>c.onclick=()=>{foodWishOnly=!foodWishOnly;render()});
+  document.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>{tripSub=b.dataset.sub;render()});
+  document.querySelectorAll('[data-bkt]').forEach(b=>b.onclick=()=>{const it=trip.bucket.find(x=>x.id===b.dataset.bkt);it.done=!it.done;saveTrip();render()});
+  const ab=document.getElementById('addBkt');if(ab)ab.onclick=()=>{const v=document.getElementById('bktNew').value.trim();if(!v)return;trip.bucket.push({id:'b'+Date.now(),text:v,done:false});saveTrip();render()};
+  const ae=document.getElementById('addExp');if(ae)ae.onclick=()=>document.getElementById('expModal').classList.add('show');
+  document.querySelectorAll('[data-delexp]').forEach(b=>b.onclick=()=>{trip.expenses=trip.expenses.filter(e=>e.id!==b.dataset.delexp);saveTrip();render()});
+  document.querySelectorAll('[data-delr]').forEach(b=>b.onclick=()=>{resv=resv.filter(r=>r.id!==b.dataset.delr);saveResv();render()});
+  document.querySelectorAll('[data-call]').forEach(b=>b.onclick=()=>alert('실제 앱에선 가게로 바로 전화 연결돼요 ☎'));
+  const sn=document.getElementById('saveNames');if(sn)sn.onclick=()=>{names={j:document.getElementById('nameJ').value||'자헌',y:document.getElementById('nameY').value||'여친'};sv('up_names',names);applyUser();render()};
+  const eb=document.getElementById('expBtn');if(eb)eb.onclick=exportData;
+  const ib=document.getElementById('impBtn');if(ib)ib.onclick=()=>document.getElementById('impFile').click();
+  const inf=document.getElementById('impFile');if(inf)inf.onchange=importData;
+}
+
+/* 예약 시트 */
+let resTarget=null;
+function openRes(pid){resTarget=pid;document.getElementById('rPlace').value=SEED.find(x=>x.id===pid).name;
+  const d=new Date();d.setDate(d.getDate()+1);document.getElementById('rDate').value=ymd(d);document.getElementById('resModal').classList.add('show')}
+document.getElementById('rCancel').onclick=()=>document.getElementById('resModal').classList.remove('show');
+document.getElementById('rSave').onclick=()=>{resv.push({id:'r'+Date.now(),pid:resTarget,date:document.getElementById('rDate').value,time:document.getElementById('rTime').value,party:document.getElementById('rParty').value,via:document.getElementById('rVia').value});saveResv();document.getElementById('resModal').classList.remove('show');tab='resv';render()};
+/* 지출 시트 */
+document.getElementById('eCancel').onclick=()=>document.getElementById('expModal').classList.remove('show');
+document.getElementById('eSave').onclick=()=>{const amt=parseInt(document.getElementById('eAmt').value)||0;const lbl=document.getElementById('eLabel').value.trim();if(!lbl||!amt){alert('항목·금액 입력');return}
+  trip.expenses.push({id:'e'+Date.now(),label:lbl,amount:amt,cat:document.getElementById('eCat').value,payer:document.getElementById('ePayer').value});saveTrip();
+  document.getElementById('eLabel').value='';document.getElementById('eAmt').value='';document.getElementById('expModal').classList.remove('show');render()};
+[document.getElementById('resModal'),document.getElementById('expModal')].forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('show')});
+
+/* 백업 */
+function exportData(){const d={names,pdata,trip,resv,exported:today()};const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='우리여행-백업.json';a.click();URL.revokeObjectURL(a.href)}
+function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);
+  if(d.names){names=d.names;sv('up_names',names)}if(d.pdata){pdata=d.pdata;savePd()}if(d.trip){trip=d.trip;saveTrip()}if(d.resv){resv=d.resv;saveResv()}
+  applyUser();render();alert('가져오기 완료')}catch(_){alert('파일 오류')}};r.readAsText(f)}
+
+/* 사용자/탭/테마 */
+function applyUser(){document.getElementById('ava').textContent=uini(me);document.getElementById('ava').className='ava '+me;document.getElementById('whoName').textContent=uname(me)}
+document.getElementById('whoBtn').onclick=()=>{me=me==='j'?'y':'j';sv('up_user',me);applyUser();render()};
+document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;if(tab!=='food')fitDone=false;render()});
+let theme=gv('up_theme','light');
+function applyTheme(){document.documentElement.setAttribute('data-theme',theme);document.getElementById('themeBtn').textContent=theme==='dark'?'☀️':'🌙';if(mapInit)setTimeout(()=>map.invalidateSize(),60)}
+document.getElementById('themeBtn').onclick=()=>{theme=theme==='dark'?'light':'dark';sv('up_theme',theme);applyTheme()};
+
+applyUser();applyTheme();render();
+</script>
+</body>
+</html>
