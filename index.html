@@ -484,11 +484,11 @@ function drawFood(){if(!foodLayer)return;foodLayer.clearLayers();
 function setupHomeMap(){
   const el=document.getElementById('homemap');if(!el)return;
   if(homeMap){homeMap.remove();homeMap=null;}
-  homeMap=L.map('homemap',{scrollWheelZoom:false,zoomControl:false}).setView([36.5,127.8],6);
+  homeMap=L.map('homemap',{scrollWheelZoom:false,zoomControl:false,worldCopyJump:true,minZoom:1}).setView([25,60],2);
   L.tileLayer(TILE,{attribution:'© OSM © CARTO',maxZoom:19}).addTo(homeMap);homeLayer=L.layerGroup().addTo(homeMap);
   const been=SEED.filter(p=>pd(p.id).visited.j||pd(p.id).visited.y);const pts=[];
   been.forEach(p=>{L.marker([p.lat,p.lng],{icon:dot(CITYMETA[p.city].c)}).bindPopup(`<b>${p.name}</b>`).addTo(homeLayer);pts.push([p.lat,p.lng])});
-  const fit=()=>{if(!homeMap)return;homeMap.invalidateSize();if(homeMap.getSize().x>0&&pts.length)homeMap.fitBounds(pts,{padding:[30,30],maxZoom:12})};
+  const fit=()=>{if(!homeMap)return;homeMap.invalidateSize();if(homeMap.getSize().x>0&&pts.length)homeMap.fitBounds(pts,{padding:[40,40],maxZoom:4})};
   [60,250,600].forEach(t=>setTimeout(fit,t));
 }
 
