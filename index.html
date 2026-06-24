@@ -223,6 +223,8 @@ const SEED=[
  ['gunsan','한주옥','Crab','Yeonghwa',35.98887,126.70906],['gunsan','서우식당','Home-style','Naun',35.96811,126.70486],
  ['gunsan','카페 신민회','Cafe','Sinchang',35.98999,126.71303],
 ].map((a,i)=>({id:'p'+i,city:a[0],name:a[1],genre:a[2],area:a[3],lat:a[4],lng:a[5]}));
+/* Kakao place IDs → detail page (info · directions · reviews) */
+const KID={p0:'11891789',p1:'21227749',p2:'1319856870',p3:'273514987',p4:'21227823',p5:'21315532',p6:'14704805',p7:'9430468',p8:'1307127818',p9:'10435057',p10:'8025375',p11:'21232315',p12:'25048467',p13:'21326655',p14:'1106001789',p15:'12543498',p16:'19880897',p17:'21555096',p18:'145791269',p19:'502958473',p20:'24529429',p21:'810201050',p22:'8676321',p23:'8629568',p24:'8350296',p25:'26615208',p26:'10186580',p27:'19645329',p28:'10588760',p29:'8464585',p30:'21292200',p31:'495040978',p32:'8055670',p33:'10379033',p34:'421048086',p35:'11053604',p36:'10923986',p37:'50657880',p38:'8143207',p39:'9979768',p40:'887827021'};
 
 let pdata=gv('ut_pdata',{});
 function pd(id){return pdata[id]||(pdata[id]={rating:{},wish:{},visited:{},memo:{}})}
@@ -288,7 +290,7 @@ function starHTML(id,u,ed){const v=pd(id).rating[u]||0;let s='';
 function placeCard(p){const u=pd(p.id);const a=avg(p.id);const c=CITYMETA[p.city];const partner=me==='j'?'y':'j';
   const pm=u.memo[partner];
   const naver='https://map.naver.com/p/search/'+encodeURIComponent(p.name+' '+p.area);
-  const kakao='https://map.kakao.com/link/map/'+encodeURIComponent(p.name)+','+p.lat+','+p.lng;
+  const kakao=KID[p.id]?('https://place.map.kakao.com/'+KID[p.id]):('https://map.kakao.com/link/map/'+encodeURIComponent(p.name)+','+p.lat+','+p.lng);
   return `<div class="card">
     <div style="display:flex;gap:8px"><div style="flex:1">
       <span class="p-name">${p.name}</span>
