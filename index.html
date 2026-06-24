@@ -78,6 +78,7 @@ textarea{resize:vertical;min-height:38px}
 .bothwish{font-size:.7rem;color:var(--accent);font-weight:700}
 
 #map{height:240px;border-radius:14px;border:1px solid var(--border);margin-bottom:12px;z-index:0}
+#homemap{height:210px;border-radius:14px;border:1px solid var(--border);margin-bottom:11px;z-index:0}
 
 .leg{display:flex;gap:10px}
 .leg .line{display:flex;flex-direction:column;align-items:center}
@@ -134,6 +135,7 @@ textarea{resize:vertical;min-height:38px}
 </header>
 <div class="banner">🧪 Prototype v2 — saved on this device only (real-time sharing via Firebase after discharge). Tap <b>Jaheon ⇄ partner</b> to try dual ratings.</div>
 
+<div id="foodmapwrap" style="display:none"><div id="map"></div></div>
 <section id="view"></section>
 
 <div class="tabbar" id="tabbar">
@@ -225,6 +227,9 @@ const SEED=[
 let pdata=gv('ut_pdata',{});
 function pd(id){return pdata[id]||(pdata[id]={rating:{},wish:{},visited:{},memo:{}})}
 function savePd(){sv('ut_pdata',pdata)}
+
+let wishCtry=gv('ut_wishctry',[{id:'w1',name:'🇯🇵 Japan',by:'j'},{id:'w2',name:'🇮🇹 Italy',by:'y'},{id:'w3',name:'🇨🇭 Switzerland',by:'j'}]);
+function saveWishCtry(){sv('ut_wishctry',wishCtry)}
 function avg(id){const r=pd(id).rating;const v=[r.j,r.y].filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0}
 function bothWish(id){const w=pd(id).wish;return w.j&&w.y}
 
@@ -282,10 +287,13 @@ function starHTML(id,u,ed){const v=pd(id).rating[u]||0;let s='';
   return `<span class="stars ${ed?'edit':''}">${s}</span>`}
 function placeCard(p){const u=pd(p.id);const a=avg(p.id);const c=CITYMETA[p.city];const partner=me==='j'?'y':'j';
   const pm=u.memo[partner];
+  const naver='https://map.naver.com/p/search/'+encodeURIComponent(p.name+' '+p.area);
+  const kakao='https://map.kakao.com/link/map/'+encodeURIComponent(p.name)+','+p.lat+','+p.lng;
   return `<div class="card">
     <div style="display:flex;gap:8px"><div style="flex:1">
       <span class="p-name">${p.name}</span>
-      <div class="p-meta">🏷 ${p.genre} · 📍 ${p.area} ${bothWish(p.id)?'<span class="bothwish">· both want to go ❤</span>':''}</div></div>
+      <div class="p-meta">🏷 ${p.genre} · 📍 ${p.area} ${bothWish(p.id)?'<span class="bothwish">· both want to go ❤</span>':''}</div>
+      <div class="small" style="margin-top:3px"><a class="linkmini" href="${naver}" target="_blank" rel="noopener">📍 Naver Map</a> · <a class="linkmini" href="${kakao}" target="_blank" rel="noopener">Kakao Map</a></div></div>
       <span class="badge" style="background:${c.c}">${c.n}</span></div>
     <div class="rate-row"><span class="ava j">${uini('j')}</span>${starHTML(p.id,'j',me==='j')}</div>
     <div class="rate-row"><span class="ava y">${uini('y')}</span>${starHTML(p.id,'y',me==='y')}<span class="avg">avg <b>${a?a.toFixed(1):'–'}</b></span></div>
@@ -319,6 +327,17 @@ function viewHome(){
     <div class="metric"><div class="v">${ratedCnt}</div><div class="l">Rated</div></div>
     <div class="metric"><div class="v">${beenBoth}</div><div class="l">Been together</div></div>
     <div class="metric"><div class="v">${wishCnt}</div><div class="l">Both wishlist</div></div></div>`;
+  // map of places we've been
+  const been=SEED.filter(p=>pd(p.id).visited.j||pd(p.id).visited.y);
+  h+=`<div class="sec">🗺 Where we've been</div>`;
+  h+=been.length?`<div id="homemap"></div>`:`<div class="card empty">Mark places "Been" in Food and they'll pin here.</div>`;
+  // countries we want to visit
+  h+=`<div class="sec">🌍 Countries we want to visit</div><div class="card">`;
+  h+=wishCtry.length?wishCtry.map(w=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+    <span class="ava ${w.by}" style="width:20px;height:20px;font-size:.62rem">${uini(w.by)}</span>
+    <span style="flex:1">${w.name}</span><button class="act" data-delctry="${w.id}" style="padding:3px 7px">🗑</button></div>`).join('')
+    :`<div class="empty">Add a dream destination 👇</div>`;
+  h+=`<div class="addrow"><input type="text" id="ctryNew" placeholder="Add a country / place"><button class="btn sm" id="addCtry">Add</button></div></div>`;
   h+=`<div class="sec">📅 Upcoming bookings</div>`;
   h+=upcoming.length?'<div class="card">'+upcoming.slice(0,4).map(p=>`<div style="display:flex;gap:10px;padding:5px 0;align-items:center">
     <span class="dday" style="min-width:46px">${ddayLabel(p.date)}</span><div style="flex:1"><div style="font-weight:600">${p.label}</div><div class="small muted">${p.date} · ${p.trip}</div></div></div>`).join('')+'</div>'
@@ -378,7 +397,7 @@ function viewTrip(){
 function viewFood(){
   let list=SEED.filter(p=>(foodCity==='all'||p.city===foodCity)&&(!foodWishOnly||bothWish(p.id))
     &&(!foodQ||(p.name+p.genre+p.area).toLowerCase().includes(foodQ.toLowerCase())));
-  let h=`<div id="map"></div><div style="margin-bottom:10px"><input type="search" id="fq" placeholder="Search name · dish · area" value="${foodQ}"></div>`;
+  let h=`<div style="margin-bottom:10px"><input type="search" id="fq" placeholder="Search name · dish · area" value="${foodQ}"></div>`;
   h+=`<div class="chips">`+[['all','All']].concat(Object.keys(CITYMETA).map(k=>[k,CITYMETA[k].n]))
     .map(([k,n])=>`<span class="chip ${foodCity===k?'on':''}" data-city="${k}">${n}</span>`).join('')
     +`<span class="chip ${foodWishOnly?'on':''}" data-wishf="1">❤ Both want</span></div>`;
@@ -439,27 +458,39 @@ function viewSet(){
 }
 
 /* ===== routing ===== */
-let map,markerLayer,mapInit=false,fitDone=false;
+const TILE='https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+let foodMap,foodLayer,foodFit=false,homeMap,homeLayer;
 function render(){
   document.getElementById('view').innerHTML=
     tab==='home'?viewHome():tab==='trip'?viewTrip():tab==='food'?viewFood():tab==='plan'?viewPlan():viewSet();
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  if(tab==='food')setupMap();
+  document.getElementById('foodmapwrap').style.display=tab==='food'?'block':'none';
+  if(tab==='food')setupFoodMap();
+  if(tab==='home')setupHomeMap();
   bind();
 }
-function setupMap(){
-  if(!mapInit){map=L.map('map',{scrollWheelZoom:false}).setView([36.2,127.6],7);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map);
-    markerLayer=L.layerGroup().addTo(map);mapInit=true;}
-  fitDone=false;drawMarkers();
-  const refit=()=>{map.invalidateSize();if(map.getSize().x>0&&!fitDone){drawMarkers();fitDone=true}};
+function dot(c){return L.divIcon({className:'',html:`<div style="width:15px;height:15px;border-radius:50% 50% 50% 0;background:${c};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(-45deg)"></div>`,iconSize:[15,15],iconAnchor:[7,15]})}
+function setupFoodMap(){
+  if(!foodMap){foodMap=L.map('map',{scrollWheelZoom:false}).setView([36.2,127.6],7);
+    L.tileLayer(TILE,{attribution:'© OSM © CARTO',maxZoom:19}).addTo(foodMap);foodLayer=L.layerGroup().addTo(foodMap);}
+  foodFit=false;drawFood();
+  const refit=()=>{if(!foodMap)return;foodMap.invalidateSize();if(foodMap.getSize().x>0&&!foodFit){drawFood();foodFit=true}};
   [60,250,600].forEach(t=>setTimeout(refit,t));
 }
-function dot(c){return L.divIcon({className:'',html:`<div style="width:15px;height:15px;border-radius:50% 50% 50% 0;background:${c};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(-45deg)"></div>`,iconSize:[15,15],iconAnchor:[7,15]})}
-function drawMarkers(){if(!mapInit)return;markerLayer.clearLayers();
+function drawFood(){if(!foodLayer)return;foodLayer.clearLayers();
   let list=SEED.filter(p=>(foodCity==='all'||p.city===foodCity)&&(!foodWishOnly||bothWish(p.id))&&(!foodQ||(p.name+p.genre+p.area).toLowerCase().includes(foodQ.toLowerCase())));
-  const pts=[];list.forEach(p=>{L.marker([p.lat,p.lng],{icon:dot(CITYMETA[p.city].c)}).bindPopup(`<b>${p.name}</b><br>${p.genre} · avg ${avg(p.id)?avg(p.id).toFixed(1):'–'}`).addTo(markerLayer);pts.push([p.lat,p.lng])});
-  if(pts.length&&map.getSize().x>0)map.fitBounds(pts,{padding:[35,35],maxZoom:14});}
+  const pts=[];list.forEach(p=>{L.marker([p.lat,p.lng],{icon:dot(CITYMETA[p.city].c)}).bindPopup(`<b>${p.name}</b><br>${p.genre} · avg ${avg(p.id)?avg(p.id).toFixed(1):'–'}`).addTo(foodLayer);pts.push([p.lat,p.lng])});
+  if(pts.length&&foodMap.getSize().x>0)foodMap.fitBounds(pts,{padding:[35,35],maxZoom:14});}
+function setupHomeMap(){
+  const el=document.getElementById('homemap');if(!el)return;
+  if(homeMap){homeMap.remove();homeMap=null;}
+  homeMap=L.map('homemap',{scrollWheelZoom:false,zoomControl:false}).setView([36.5,127.8],6);
+  L.tileLayer(TILE,{attribution:'© OSM © CARTO',maxZoom:19}).addTo(homeMap);homeLayer=L.layerGroup().addTo(homeMap);
+  const been=SEED.filter(p=>pd(p.id).visited.j||pd(p.id).visited.y);const pts=[];
+  been.forEach(p=>{L.marker([p.lat,p.lng],{icon:dot(CITYMETA[p.city].c)}).bindPopup(`<b>${p.name}</b>`).addTo(homeLayer);pts.push([p.lat,p.lng])});
+  const fit=()=>{if(!homeMap)return;homeMap.invalidateSize();if(homeMap.getSize().x>0&&pts.length)homeMap.fitBounds(pts,{padding:[30,30],maxZoom:12})};
+  [60,250,600].forEach(t=>setTimeout(fit,t));
+}
 
 function bind(){
   document.querySelectorAll('[data-star]').forEach(s=>s.onclick=()=>{const[id,u,v]=s.dataset.star.split(':');const r=pd(id).rating;r[u]=(r[u]===+v?0:+v);savePd();render()});
@@ -483,6 +514,8 @@ function bind(){
   const ap=document.getElementById('addPrep');if(ap)ap.onclick=()=>document.getElementById('prepModal').classList.add('show');
   const sn=document.getElementById('saveNames');if(sn)sn.onclick=()=>{names={j:document.getElementById('nameJ').value||'Jaheon',y:document.getElementById('nameY').value||'Partner'};sv('ut_names',names);applyUser();render()};
   const sr=document.getElementById('saveRates');if(sr)sr.onclick=()=>{rates.EUR=+document.getElementById('rEUR').value||rates.EUR;rates.THB=+document.getElementById('rTHB').value||rates.THB;rates.JPY=+document.getElementById('rJPY').value||rates.JPY;rates.USD=+document.getElementById('rUSD').value||rates.USD;sv('ut_rates',rates);alert('Rates saved')};
+  const ac=document.getElementById('addCtry');if(ac)ac.onclick=()=>{const v=document.getElementById('ctryNew').value.trim();if(!v)return;wishCtry.push({id:'w'+Date.now(),name:v,by:me});saveWishCtry();render()};
+  document.querySelectorAll('[data-delctry]').forEach(b=>b.onclick=()=>{wishCtry=wishCtry.filter(w=>w.id!==b.dataset.delctry);saveWishCtry();render()});
   const eb=document.getElementById('expBtn');if(eb)eb.onclick=exportData;
   const ib=document.getElementById('impBtn');if(ib)ib.onclick=()=>document.getElementById('impFile').click();
   const inf=document.getElementById('impFile');if(inf)inf.onchange=importData;
@@ -523,9 +556,9 @@ function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileRe
 /* user / tabs / theme */
 function applyUser(){document.getElementById('ava').textContent=uini(me);document.getElementById('ava').className='ava '+me;document.getElementById('whoName').textContent=uname(me)}
 document.getElementById('whoBtn').onclick=()=>{me=me==='j'?'y':'j';sv('ut_user',me);applyUser();render()};
-document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;if(tab!=='food')fitDone=false;render()});
+document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;if(tab!=='food')foodFit=false;render()});
 let theme=gv('ut_theme','light');
-function applyTheme(){document.documentElement.setAttribute('data-theme',theme);document.getElementById('themeBtn').textContent=theme==='dark'?'☀️':'🌙';if(mapInit)setTimeout(()=>map.invalidateSize(),60)}
+function applyTheme(){document.documentElement.setAttribute('data-theme',theme);document.getElementById('themeBtn').textContent=theme==='dark'?'☀️':'🌙';setTimeout(()=>{if(foodMap)foodMap.invalidateSize();if(homeMap)homeMap.invalidateSize()},60)}
 document.getElementById('themeBtn').onclick=()=>{theme=theme==='dark'?'light':'dark';sv('ut_theme',theme);applyTheme()};
 
 applyUser();applyTheme();render();
