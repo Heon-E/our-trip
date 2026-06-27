@@ -8,12 +8,12 @@
 <style>
 :root{
   --bg:#fdf6f8; --surface:#ffffff; --surface2:#f9eef2; --text:#2c2329; --muted:#9a8b91;
-  --border:#f0dfe6; --accent:#d4537e; --accent-soft:#fbeaf0; --gold:#e0a93b; --good:#5b8c5a; --info:#3d8bcd;
+  --border:#f0dfe6; --accent:#d4537e; --accent-soft:#fbeaf0; --gold:#e0a93b; --good:#5b8c5a; --info:#3d8bcd; --bad:#c2553f;
   --shadow:0 1px 3px rgba(60,30,40,.06),0 4px 16px rgba(60,30,40,.05);
 }
 [data-theme="dark"]{
   --bg:#171115; --surface:#211a1e; --surface2:#2b2125; --text:#ece4e8; --muted:#a8959d;
-  --border:#3a2c32; --accent:#e87aa0; --accent-soft:#3a2028; --gold:#e6b94f; --good:#7bb06f; --info:#5fa0d8;
+  --border:#3a2c32; --accent:#e87aa0; --accent-soft:#3a2028; --gold:#e6b94f; --good:#7bb06f; --info:#5fa0d8; --bad:#d9745c;
   --shadow:0 1px 3px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -123,9 +123,18 @@ textarea{resize:vertical;min-height:38px}
 .field{margin-bottom:10px}
 .field label{display:block;font-size:.76rem;color:var(--muted);margin-bottom:3px;font-weight:600}
 .row2{display:flex;gap:8px}.row2>*{flex:1}
+#authgate{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200;padding:24px;text-align:center}
+#authgate .gatebox{max-width:300px}
 </style>
 </head>
 <body>
+<div id="authgate"><div class="gatebox">
+  <div style="font-size:2.4rem">💕</div>
+  <h2 style="margin:6px 0">Our Trip</h2>
+  <p class="muted small" style="margin-bottom:16px">Sign in to sync with your partner in real time.</p>
+  <button class="btn" id="googleBtn">Continue with Google</button>
+  <div id="authmsg" class="small" style="color:var(--bad);margin-top:10px"></div>
+</div></div>
 <header>
   <h1>💕 Our Trip</h1>
   <div class="userbar">
@@ -180,11 +189,27 @@ textarea{resize:vertical;min-height:38px}
 </div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-/* ===== storage (localStorage; swap to Firebase after discharge) ===== */
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+/* ===== Firebase config — paste from console to enable real-time sharing. Empty = local-only. ===== */
+const FB={
+  config:{
+    /* apiKey:"…", authDomain:"…", projectId:"…", storageBucket:"…", messagingSenderId:"…", appId:"…" */
+  },
+  members:{ /* "you@gmail.com":"j", "partner@gmail.com":"y" */ }
+};
+const FB_ON=!!FB.config.apiKey;
+let fbAuth=null,fbProvider=null,fbDoc=null;
+if(FB_ON){const app=initializeApp(FB.config);fbAuth=getAuth(app);fbProvider=new GoogleAuthProvider();fbDoc=doc(getFirestore(app),'couples','main');}
+
+/* ===== storage: Firestore when configured, else localStorage ===== */
 const LS=(function(){try{return window.localStorage}catch(e){return null}})();
 function gv(k,d){try{const r=JSON.parse(LS.getItem(k));return r==null?d:r}catch(e){return d}}
 function sv(k,v){try{LS.setItem(k,JSON.stringify(v))}catch(e){}}
+function sv2(field,val){if(FB_ON&&fbDoc){setDoc(fbDoc,{[field]:val},{merge:true}).catch(e=>console.warn('sync',e))}else{sv('ut_'+field,val)}}
 
 let me=gv('ut_user','j');
 let names=gv('ut_names',{j:'Jaheon',y:'Partner'});
@@ -228,10 +253,10 @@ const KID={p0:'11891789',p1:'21227749',p2:'1319856870',p3:'273514987',p4:'212278
 
 let pdata=gv('ut_pdata',{});
 function pd(id){return pdata[id]||(pdata[id]={rating:{},wish:{},visited:{},memo:{}})}
-function savePd(){sv('ut_pdata',pdata)}
+function savePd(){sv2('pdata',pdata)}
 
 let wishCtry=gv('ut_wishctry',[{id:'w1',name:'🇯🇵 Japan',by:'j'},{id:'w2',name:'🇮🇹 Italy',by:'y'},{id:'w3',name:'🇨🇭 Switzerland',by:'j'}]);
-function saveWishCtry(){sv('ut_wishctry',wishCtry)}
+function saveWishCtry(){sv2('wishctry',wishCtry)}
 function avg(id){const r=pd(id).rating;const v=[r.j,r.y].filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0}
 function bothWish(id){const w=pd(id).wish;return w.j&&w.y}
 
@@ -271,7 +296,7 @@ function defaultTrips(){return [
 let trips=gv('ut_trips',null);if(!trips){trips=defaultTrips();sv('ut_trips',trips)}
 let activeId=gv('ut_active',trips[0].id);
 function T(){return trips.find(t=>t.id===activeId)||trips[0]}
-function saveTrips(){sv('ut_trips',trips)}
+function saveTrips(){sv2('trips',trips)}
 function tripCities(t){return [...new Set(t.legs.map(l=>l.c))]}
 
 /* ===== dates ===== */
@@ -503,7 +528,7 @@ function bind(){
   const fq=document.getElementById('fq');if(fq)fq.oninput=e=>{foodQ=e.target.value;const pos=e.target.selectionStart;render();const n=document.getElementById('fq');if(n){n.focus();n.setSelectionRange(pos,pos)}};
   document.querySelectorAll('[data-city]').forEach(c=>c.onclick=()=>{foodCity=c.dataset.city;render()});
   document.querySelectorAll('[data-wishf]').forEach(c=>c.onclick=()=>{foodWishOnly=!foodWishOnly;render()});
-  document.querySelectorAll('[data-trip]').forEach(c=>c.onclick=()=>{activeId=c.dataset.trip;sv('ut_active',activeId);render()});
+  document.querySelectorAll('[data-trip]').forEach(c=>c.onclick=()=>{activeId=c.dataset.trip;sv2('active',activeId);render()});
   document.querySelectorAll('[data-newtrip]').forEach(c=>c.onclick=()=>document.getElementById('tripModal').classList.add('show'));
   document.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>{tripSub=b.dataset.sub;render()});
   document.querySelectorAll('[data-bkt]').forEach(b=>b.onclick=()=>{const it=T().bucket.find(x=>x.id===b.dataset.bkt);it.done=!it.done;saveTrips();render()});
@@ -514,8 +539,8 @@ function bind(){
   document.querySelectorAll('[data-delprep]').forEach(b=>b.onclick=()=>{const t=T();t.prep=t.prep.filter(p=>p.id!==b.dataset.delprep);saveTrips();render()});
   document.querySelectorAll('[data-stay]').forEach(b=>b.onclick=()=>{const t=T();const c=b.dataset.stay;if(t.legs.some(l=>l.c===c&&l.stay))return;t.stayDone[c]=!t.stayDone[c];saveTrips();render()});
   const ap=document.getElementById('addPrep');if(ap)ap.onclick=()=>document.getElementById('prepModal').classList.add('show');
-  const sn=document.getElementById('saveNames');if(sn)sn.onclick=()=>{names={j:document.getElementById('nameJ').value||'Jaheon',y:document.getElementById('nameY').value||'Partner'};sv('ut_names',names);applyUser();render()};
-  const sr=document.getElementById('saveRates');if(sr)sr.onclick=()=>{rates.EUR=+document.getElementById('rEUR').value||rates.EUR;rates.THB=+document.getElementById('rTHB').value||rates.THB;rates.JPY=+document.getElementById('rJPY').value||rates.JPY;rates.USD=+document.getElementById('rUSD').value||rates.USD;sv('ut_rates',rates);alert('Rates saved')};
+  const sn=document.getElementById('saveNames');if(sn)sn.onclick=()=>{names={j:document.getElementById('nameJ').value||'Jaheon',y:document.getElementById('nameY').value||'Partner'};sv2('names',names);applyUser();render()};
+  const sr=document.getElementById('saveRates');if(sr)sr.onclick=()=>{rates.EUR=+document.getElementById('rEUR').value||rates.EUR;rates.THB=+document.getElementById('rTHB').value||rates.THB;rates.JPY=+document.getElementById('rJPY').value||rates.JPY;rates.USD=+document.getElementById('rUSD').value||rates.USD;sv2('rates',rates);alert('Rates saved')};
   const ac=document.getElementById('addCtry');if(ac)ac.onclick=()=>{const v=document.getElementById('ctryNew').value.trim();if(!v)return;wishCtry.push({id:'w'+Date.now(),name:v,by:me});saveWishCtry();render()};
   document.querySelectorAll('[data-delctry]').forEach(b=>b.onclick=()=>{wishCtry=wishCtry.filter(w=>w.id!==b.dataset.delctry);saveWishCtry();render()});
   const eb=document.getElementById('expBtn');if(eb)eb.onclick=exportData;
@@ -540,7 +565,7 @@ document.getElementById('eSave').onclick=()=>{const amt=parseFloat(document.getE
 document.getElementById('tCancel').onclick=()=>document.getElementById('tripModal').classList.remove('show');
 document.getElementById('tSave').onclick=()=>{const nm=document.getElementById('tName').value.trim();if(!nm){alert('Enter name');return}
   const id='t'+Date.now();trips.push({id,name:nm,start:document.getElementById('tStart').value,end:document.getElementById('tEnd').value,cur:document.getElementById('tCur').value,legs:[],expenses:[],bucket:[],prep:[],stayDone:{}});
-  activeId=id;sv('ut_active',id);saveTrips();document.getElementById('tripModal').classList.remove('show');tab='trip';tripSub='plan';render()};
+  activeId=id;sv2('active',id);saveTrips();document.getElementById('tripModal').classList.remove('show');tab='trip';tripSub='plan';render()};
 document.getElementById('pCancel').onclick=()=>document.getElementById('prepModal').classList.remove('show');
 document.getElementById('pSave').onclick=()=>{const lbl=document.getElementById('pLabel').value.trim();if(!lbl){alert('Enter label');return}
   T().prep.push({id:'pr'+Date.now(),type:document.getElementById('pType').value,label:lbl,done:false});saveTrips();
@@ -551,19 +576,40 @@ document.getElementById('pSave').onclick=()=>{const lbl=document.getElementById(
 function exportData(){const d={names,rates,pdata,trips,activeId,exported:today()};const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='our-trip-backup.json';a.click();URL.revokeObjectURL(a.href)}
 function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);
-  if(d.names){names=d.names;sv('ut_names',names)}if(d.rates){rates=d.rates;sv('ut_rates',rates)}if(d.pdata){pdata=d.pdata;savePd()}
-  if(d.trips){trips=d.trips;saveTrips()}if(d.activeId){activeId=d.activeId;sv('ut_active',activeId)}
+  if(d.names){names=d.names;sv2('names',names)}if(d.rates){rates=d.rates;sv2('rates',rates)}if(d.pdata){pdata=d.pdata;savePd()}
+  if(d.trips){trips=d.trips;saveTrips()}if(d.activeId){activeId=d.activeId;sv2('active',activeId)}
   applyUser();render();alert('Imported')}catch(_){alert('File error')}};r.readAsText(f)}
 
 /* user / tabs / theme */
 function applyUser(){document.getElementById('ava').textContent=uini(me);document.getElementById('ava').className='ava '+me;document.getElementById('whoName').textContent=uname(me)}
-document.getElementById('whoBtn').onclick=()=>{me=me==='j'?'y':'j';sv('ut_user',me);applyUser();render()};
+document.getElementById('whoBtn').onclick=()=>{me=me==='j'?'y':'j';sv2('user',me);applyUser();render()};
 document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;if(tab!=='food')foodFit=false;render()});
 let theme=gv('ut_theme','light');
 function applyTheme(){document.documentElement.setAttribute('data-theme',theme);document.getElementById('themeBtn').textContent=theme==='dark'?'☀️':'🌙';setTimeout(()=>{if(foodMap)foodMap.invalidateSize();if(homeMap)homeMap.invalidateSize()},60)}
-document.getElementById('themeBtn').onclick=()=>{theme=theme==='dark'?'light':'dark';sv('ut_theme',theme);applyTheme()};
+document.getElementById('themeBtn').onclick=()=>{theme=theme==='dark'?'light':'dark';sv2('theme',theme);applyTheme()};
 
-applyUser();applyTheme();render();
+/* ===== Firebase real-time sync (only when FB_ON) ===== */
+function startFirebase(){
+  const gate=document.getElementById('authgate');gate.style.display='flex';
+  document.getElementById('googleBtn').onclick=()=>{document.getElementById('authmsg').textContent='';
+    signInWithPopup(fbAuth,fbProvider).catch(e=>{document.getElementById('authmsg').textContent=e.message})};
+  onAuthStateChanged(fbAuth,user=>{
+    if(!user){gate.style.display='flex';return;}
+    const slot=FB.members[user.email];
+    if(!slot){document.getElementById('authmsg').textContent='This account ('+user.email+') is not linked to this trip.';return;}
+    me=slot;document.getElementById('whoBtn').style.display='none';applyUser();gate.style.display='none';
+    onSnapshot(fbDoc,snap=>{
+      if(!snap.exists()){setDoc(fbDoc,{names,rates,pdata,trips,active:activeId,wishctry:wishCtry,theme});return;}
+      const d=snap.data()||{};
+      if(d.names)names=d.names;if(d.rates)rates=d.rates;if(d.pdata)pdata=d.pdata;
+      if(d.trips)trips=d.trips;if(d.active)activeId=d.active;if(d.wishctry)wishCtry=d.wishctry;if(d.theme)theme=d.theme;
+      applyUser();applyTheme();render();
+    },e=>console.warn('snapshot',e));
+  });
+}
+
+applyUser();applyTheme();
+if(FB_ON){startFirebase();}else{render();}
 </script>
 </body>
 </html>
