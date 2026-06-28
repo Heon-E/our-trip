@@ -197,9 +197,14 @@ import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/f
 /* ===== Firebase config — paste from console to enable real-time sharing. Empty = local-only. ===== */
 const FB={
   config:{
-    /* apiKey:"…", authDomain:"…", projectId:"…", storageBucket:"…", messagingSenderId:"…", appId:"…" */
+    apiKey:"AIzaSyAT0ILfwRYcaP4waY-r_Eh5Zk3TMxwYIJo",
+    authDomain:"trip-planner-5d4a8.firebaseapp.com",
+    projectId:"trip-planner-5d4a8",
+    storageBucket:"trip-planner-5d4a8.firebasestorage.app",
+    messagingSenderId:"983033987192",
+    appId:"1:983033987192:web:e84687337dcdde58646d8d"
   },
-  members:{ /* "you@gmail.com":"j", "partner@gmail.com":"y" */ }
+  members:{ "gujaheon87@gmail.com":"j", "emily20071216@gmail.com":"y" }
 };
 const FB_ON=!!FB.config.apiKey;
 let fbAuth=null,fbProvider=null,fbDoc=null;
@@ -212,7 +217,7 @@ function sv(k,v){try{LS.setItem(k,JSON.stringify(v))}catch(e){}}
 function sv2(field,val){if(FB_ON&&fbDoc){setDoc(fbDoc,{[field]:val},{merge:true}).catch(e=>console.warn('sync',e))}else{sv('ut_'+field,val)}}
 
 let me=gv('ut_user','j');
-let names=gv('ut_names',{j:'Jaheon',y:'Partner'});
+let names=gv('ut_names',{j:'Jaheon',y:'Emily'});
 function uname(u){return names[u]} function uini(u){return (names[u]||'?').charAt(0).toUpperCase()}
 
 /* ===== currency ===== */
