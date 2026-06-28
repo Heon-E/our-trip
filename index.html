@@ -89,6 +89,9 @@
   .mlink.star{background:var(--pink-100);}
   .place-del{font-size:.76rem;color:var(--pink-300);cursor:pointer;margin-left:auto;}
   .place-del:hover{color:var(--pink-600);}
+  .idea-card{border-top-color:var(--pink-600);}
+  .idea-sub{font-weight:400;font-size:.8rem;color:var(--muted);}
+  .idea-assign,.place-body select{border:1px solid var(--pink-200);border-radius:8px;padding:5px 8px;font-size:.8rem;font-family:inherit;color:var(--pink-700);background:#fff;cursor:pointer;}
   .add-spot{margin-top:10px;display:flex;gap:6px;}
   .add-spot input{flex:1;border:1px solid var(--pink-200);border-radius:8px;padding:8px 10px;font-size:.85rem;}
   .add-spot button{border:none;background:var(--pink-500);color:#fff;border-radius:8px;padding:6px 13px;cursor:pointer;font-weight:700;}
@@ -453,17 +456,33 @@ function addLeg(){const city=document.getElementById('legCity').value.trim();con
 function delLeg(i){if(!confirm('Delete this stop?'))return;trip().legs.splice(i,1);persist();renderTimeline();renderHeader();renderCountdown();}
 
 /* ===== By City (Option C: place detail cards) ===== */
+function cityOptions(exclude){return cities().filter(c=>c!=='General'&&c!==exclude).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');}
 function renderCities(){
   const t=trip();const list=t.cities.filter(c=>c!=='General');const grid=document.getElementById('cityGrid');
-  if(!list.length){grid.innerHTML='<p class="empty">No cities yet — add one above 🏙️</p>';return;}
-  grid.innerHTML=list.map(city=>{
+  const ideas=(t.spots['General']||[]);
+  const hasCity=list.length>0;
+  const ideaCard=`<div class="city-card idea-card">
+    <h3>💭 Ideas <span class="idea-sub">— dump first, sort later</span></h3>
+    <div class="add-spot"><input type="text" class="idea-input" placeholder="Add anything you want to do ✨"><button class="idea-add">+</button></div>
+    <div class="plan-list">${ideas.length?ideas.map((s,i)=>ideaRow(s,i,hasCity)).join(''):'<p style="color:var(--muted);font-size:.85rem;padding:4px 0">Nothing yet — jot ideas, then pick a city 👇</p>'}</div>
+  </div>`;
+  const cityCards=list.map(city=>{
     const spots=(t.spots[city]||[]);
     return `<div class="city-card">
       <h3>${esc(city)}<span class="city-del" data-citydel="${esc(city)}">✕</span></h3>
       <div class="plan-list">${spots.map((s,i)=>placeRow(city,s,i)).join('')||'<p style="color:var(--muted);font-size:.85rem;padding:4px 0">No places yet — add one below</p>'}</div>
       <div class="add-spot"><input type="text" class="spot-input" data-city="${esc(city)}" placeholder="Add a place / restaurant"><button class="spot-add" data-city="${esc(city)}">+</button></div>
     </div>`;}).join('');
+  grid.innerHTML=ideaCard+cityCards;
 }
+function ideaRow(s,i,hasCity){
+  return `<div class="place"><div class="place-head" style="cursor:default">
+    <span class="place-name">${esc(s.name)}</span>
+    ${hasCity?`<select class="idea-assign" data-assign="${i}"><option value="">→ city…</option>${cityOptions(null)}</select>`:'<span class="idea-sub">add a city first</span>'}
+    <span class="place-del" data-del="General|${i}">🗑</span>
+  </div></div>`;
+}
+function assignSpot(fromCity,i,toCity){const t=trip();if(!t.spots[fromCity]||!t.spots[fromCity][i])return;const s=t.spots[fromCity].splice(i,1)[0];(t.spots[toCity]=t.spots[toCity]||[]).push(s);openSet.clear();persist();renderCities();}
 function placeRow(city,s,i){
   const key=city+'|'+i;const open=openSet.has(key);
   return `<div class="place${s.done?' done':''}">
@@ -476,6 +495,7 @@ function placeRow(city,s,i){
     ${open?`<div class="place-body">
       <label>Time<input type="time" data-field="time" data-key="${esc(key)}" value="${esc(s.time||'')}"></label>
       <label>Notes<textarea data-field="note" data-key="${esc(key)}" placeholder="What to do / order, links…">${esc(s.note||'')}</textarea></label>
+      <label>Move to<select data-move="${esc(key)}"><option value="">— move to another city —</option><option value="General">💭 Ideas</option>${cityOptions(city)}</select></label>
       <div class="place-links">${mapLinks(s.name)}<span class="place-del" data-del="${esc(key)}">🗑 remove</span></div>
     </div>`:''}
   </div>`;
@@ -552,12 +572,21 @@ grid.addEventListener('click',e=>{
   const done=e.target.closest('[data-done]');if(done){e.stopPropagation();toggleSpotDone(done.dataset.done);return;}
   const del=e.target.closest('[data-del]');if(del){delSpot(del.dataset.del);return;}
   const cdel=e.target.closest('.city-del');if(cdel){delCity(cdel.dataset.citydel);return;}
+  const iadd=e.target.closest('.idea-add');if(iadd){const inp=iadd.parentElement.querySelector('.idea-input');addSpot('General',inp.value);inp.value='';return;}
   const add=e.target.closest('.spot-add');if(add){const inp=add.parentElement.querySelector('.spot-input');addSpot(add.dataset.city,inp.value);inp.value='';return;}
-  if(e.target.closest('.mlink'))return;
+  if(e.target.closest('.mlink')||e.target.closest('select'))return;
   const head=e.target.closest('[data-toggle]');if(head){toggleSpotOpen(head.dataset.toggle);return;}
 });
-grid.addEventListener('keypress',e=>{if(e.key==='Enter'&&e.target.classList.contains('spot-input')){addSpot(e.target.dataset.city,e.target.value);e.target.value='';}});
-grid.addEventListener('change',e=>{const f=e.target.closest('[data-field]');if(f)editSpotField(f.dataset.key,f.dataset.field,e.target.value);});
+grid.addEventListener('keypress',e=>{
+  if(e.key!=='Enter')return;
+  if(e.target.classList.contains('idea-input')){addSpot('General',e.target.value);e.target.value='';}
+  else if(e.target.classList.contains('spot-input')){addSpot(e.target.dataset.city,e.target.value);e.target.value='';}
+});
+grid.addEventListener('change',e=>{
+  const asg=e.target.closest('[data-assign]');if(asg){if(e.target.value)assignSpot('General',+asg.dataset.assign,e.target.value);return;}
+  const mv=e.target.closest('[data-move]');if(mv){if(e.target.value){const [c,i]=parseKey(mv.dataset.move);assignSpot(c,i,e.target.value);}return;}
+  const f=e.target.closest('[data-field]');if(f)editSpotField(f.dataset.key,f.dataset.field,e.target.value);
+});
 
 /* ===== auth + boot ===== */
 function showApp(){document.getElementById('authgate').style.display='none';document.querySelector('.wrap').style.display='block';}
