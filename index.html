@@ -356,7 +356,7 @@ function mapLinks(name){
 /* ===== defaults ===== */
 const DEFAULT_CITIES=["General","Seoul","Daegu","Namhae","Gunsan","Jeonju","Donghae","Sokcho"];
 const DEFAULT_LEGS=[
-  {city:"🗽 Seoul (Myeongdong)",date:"Jul 17",start:"2026-07-17",end:"2026-07-17",nights:"1 night",note:"Stay in Myeongdong · trip begins!",stay:"https://www.airbnb.co.kr/rooms/1426528785836118641"},
+  {city:"🗽 Seoul (Myeongdong)",date:"Jul 16–18",start:"2026-07-16",end:"2026-07-17",nights:"2 nights",note:"Emily arrives ✈️ · Myeongdong · trip begins 💕",stay:"https://www.airbnb.co.kr/rooms/1426528785836118641"},
   {city:"🚗 Daegu (via Daejeon)",date:"Jul 18–22",start:"2026-07-18",end:"2026-07-21",nights:"4 nights",note:"Drive down, stop in Daejeon",stay:"https://www.airbnb.co.kr/rooms/1521413250977933225"},
   {city:"🌊 Namhae",date:"Jul 22–24",start:"2026-07-22",end:"2026-07-23",nights:"2 nights",note:"German Village · Darangyi"},
   {city:"🍜 Gunsan",date:"Jul 24–25",start:"2026-07-24",end:"2026-07-24",nights:"1 night",note:"Modern history street · Lee Sung Dang",stay:"https://www.airbnb.co.kr/rooms/1284428920224357665"},
@@ -377,7 +377,7 @@ const DEFAULT_SPOTS={
 };
 const DEFAULT_BUCKET=["clothes shopping 🛍️","matcha desserts 🍵","café hopping ☕️🍰","take bomb couple pics 😎","try everything matcha 🌸🍵","have boba 🧋","Morning runs 😄","have all the street foods 🥪🥟"];
 const DEFAULT_EXP=[
-  {item:"Hotel (Jul 17, Seoul)",city:"Seoul",cat:"Stay",amt:120250},{item:"Diesel (fuel)",city:"General",cat:"Transport",amt:250000},
+  {item:"Hotel (Seoul, Jul 16–18)",city:"Seoul",cat:"Stay",amt:120250},{item:"Diesel (fuel)",city:"General",cat:"Transport",amt:250000},
   {item:"Daegu hotel",city:"Daegu",cat:"Stay",amt:244810},{item:"Gunsan B&B",city:"Gunsan",cat:"Stay",amt:110000},
   {item:"Jeonju hotel",city:"Jeonju",cat:"Stay",amt:98200},{item:"Daegu hotel (2nd)",city:"Daegu",cat:"Stay",amt:440656},
   {item:"Donghae B&B",city:"Donghae",cat:"Stay",amt:174864},{item:"Sokcho hotel",city:"Sokcho",cat:"Stay",amt:461658},{item:"Seoul B&B",city:"Seoul",cat:"Stay",amt:731065}
@@ -403,7 +403,7 @@ function initLocal(){
   const saved=lsGet('tp_trips');
   if(saved){try{TRIPS=JSON.parse(saved)||[];}catch(e){TRIPS=[];}}
   if(!TRIPS.length){
-    const a={id:uid(),name:"2026 Summer 🇰🇷",subtitle:"Jul 17 – Aug 14, 2026 · 28 nights",startDate:"2026-07-17",
+    const a={id:uid(),name:"2026 Summer 🇰🇷",subtitle:"Jul 16 – Aug 14, 2026 · 29 nights",startDate:"2026-07-16",
       cities:DEFAULT_CITIES.slice(),places:[],legs:DEFAULT_LEGS.map(l=>({...l})),spots:JSON.parse(JSON.stringify(DEFAULT_SPOTS)),
       todos:[],bucket:DEFAULT_BUCKET.map(t=>({text:t,done:false})),exp:DEFAULT_EXP.map(x=>({...x}))};
     const b=emptyTrip("2027 Trip ✈️");
@@ -411,7 +411,20 @@ function initLocal(){
   }
   ACTIVE=lsGet('tp_active')||TRIPS[0].id; if(!trip())ACTIVE=TRIPS[0].id;
   const f=lsGet('tp_future'); FUTURE=f?JSON.parse(f):DEFAULT_FUTURE.map(t=>({text:t,done:false}));
-  normalizeSpots();
+  normalizeSpots();fixSeoulArrival();
+}
+/* one-time fix: Emily arrives Jul 16 → Seoul stay 16–18 (idempotent) */
+function fixSeoulArrival(){
+  let changed=false;
+  TRIPS.forEach(t=>{
+    if(t.startDate==='2026-07-17'){t.startDate='2026-07-16';changed=true;}
+    (t.legs||[]).forEach(l=>{
+      if(l.city&&l.city.includes('Seoul')&&l.start==='2026-07-17'&&/Myeongdong|begins/i.test((l.city||'')+' '+(l.note||''))){
+        l.start='2026-07-16';l.end='2026-07-17';l.date='Jul 16–18';l.nights='2 nights';l.note='Emily arrives ✈️ · Myeongdong · trip begins 💕';changed=true;
+      }
+    });
+  });
+  return changed;
 }
 
 /* ===== accessors ===== */
@@ -609,7 +622,7 @@ function startFirebase(){
         if(d.active)ACTIVE=d.active;
         if(Array.isArray(d.future))FUTURE=d.future;
         if(!trip())ACTIVE=TRIPS[0].id;
-        normalizeSpots();fbReady=true;renderAll();
+        normalizeSpots();const chg=fixSeoulArrival();fbReady=true;if(chg)persist();renderAll();
       }else{
         fbReady=true;persist();renderAll(); /* old/empty data → seed fresh from local defaults */
       }
